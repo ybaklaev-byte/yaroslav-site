@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Ярослав — личный центр дел</title>
+<meta id="pageDescription" name="description" content="Личная страница Ярослава: рынок, контент-план, тренировки и проекты в одном месте.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ticker" aria-label="Фокус недели">
+  <div class="ticker__track" id="tickerTrack"></div>
+</div>
+
+<header class="card-header">
+  <div class="wrap">
+    <div class="header-top">
+      <div class="index-mark"><span id="indexMark">№ 01</span> · <span id="todayStamp"></span></div>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Переключить тему">
+        <span class="theme-toggle__icon" aria-hidden="true"></span>
+      </button>
+    </div>
+    <h1 class="name" id="siteName">Ярослав</h1>
+    <p class="tagline" id="tagline"></p>
+  </div>
+</header>
+
+<section class="market wrap" aria-label="Курсы криптовалют">
+  <div class="market__head">
+    <span class="market__label" id="marketLabel">Топ-5 крипто</span>
+    <span class="market__updated" id="marketUpdated">загрузка…</span>
+  </div>
+  <div class="market__row" id="marketRow"></div>
+</section>
+
+<main class="wrap">
+  <section class="sections-grid" id="sectionsGrid" aria-label="Разделы"></section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <p id="footerNote"></p>
+    <p class="quiet" id="footerQuiet"></p>
+  </div>
+</footer>
+
+<button class="quick-add" id="quickAddBtn" title="Быстро добавить ссылку (сохранится только в этом браузере)"></button>
+
+<div class="modal" id="quickAddModal" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal__head">
+      <h2 class="modal__title" id="modalTitle">Добавить ссылку</h2>
+      <button class="modal__close" type="button" data-close aria-label="Закрыть">×</button>
+    </div>
+    <p class="modal__hint">Сохранится только в этом браузере. Чтобы ссылку видели все — добавь её в <code>data.js</code>.</p>
+    <form id="quickAddForm" class="modal__form">
+      <label class="field">
+        <span class="field__label">Раздел</span>
+        <select class="field__input" id="qaSection" required></select>
+      </label>
+      <label class="field">
+        <span class="field__label">Название</span>
+        <input class="field__input" id="qaLabel" type="text" placeholder="Например: План на неделю" required>
+      </label>
+      <label class="field">
+        <span class="field__label">Ссылка (URL)</span>
+        <input class="field__input" id="qaUrl" type="url" placeholder="https://…" required>
+      </label>
+      <label class="field">
+        <span class="field__label">Пометка <span class="field__opt">необязательно</span></span>
+        <input class="field__input" id="qaNote" type="text" placeholder="например: черновик">
+      </label>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" data-close>Отмена</button>
+        <button type="submit" class="btn btn--solid">Добавить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
