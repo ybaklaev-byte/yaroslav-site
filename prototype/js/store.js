@@ -18,7 +18,7 @@ export function listSnapshots() {
 }
 export function saveSnapshot(analysis, source) {
   const all = read(SNAP_KEY, []);
-  const snap = { id: "s" + Date.now(), date: Date.now(), source, analysis, recDone: {} };
+  const snap = { id: "s" + Date.now() + "-" + Math.random().toString(36).slice(2, 7), date: Date.now(), period: "", source, analysis, recDone: {} };
   all.push(snap); write(SNAP_KEY, all); return snap;
 }
 export function getSnapshot(id) { return read(SNAP_KEY, []).find((s) => s.id === id) || null; }

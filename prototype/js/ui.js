@@ -17,16 +17,12 @@ let currentSnapshotId = null;
 let previousScreen = "entry";
 
 /* theme */
-const TK = "fin-proto-theme";
 function setTheme(t) {
   R.setAttribute("data-theme", t);
-  try { localStorage.setItem(TK, t); } catch (e) {}
+  store.setProfile({ theme: t });
 }
 (function () {
-  let s = null;
-  try { s = localStorage.getItem(TK); } catch (e) {}
-  if (!s) s = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-  R.setAttribute("data-theme", s);
+  R.setAttribute("data-theme", store.getProfile().theme);
 })();
 $("#themeBtn").onclick = function () {
   const c = R.getAttribute("data-theme") === "light" ? "light" : "dark";
@@ -80,6 +76,7 @@ function showScreen(name) {
 function rub(n) { return Math.round(Math.abs(n)).toLocaleString("ru-RU") + " ₽"; }
 function pct(n) { return Math.round(n * 100) + "%"; }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return esc(s).replace(/"/g, "&quot;"); }
 function fmtDate(ts) { return new Date(ts).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }); }
 
 /* ---------- gauge geometry ---------- */
@@ -283,7 +280,7 @@ function renderProfile() {
   h += '<h1 class="h-title">Настройки</h1>';
 
   h += '<div class="blk-h">Имя</div>';
-  h += '<div class="prof-field"><input type="text" id="profName" class="prof-input" placeholder="Как к тебе обращаться" value="' + esc(profile.name || "") + '"></div>';
+  h += '<div class="prof-field"><input type="text" id="profName" class="prof-input" placeholder="Как к тебе обращаться" value="' + escAttr(profile.name || "") + '"></div>';
 
   h += '<div class="blk-h">Тема</div>';
   h += '<div class="btn-line">'
@@ -320,6 +317,12 @@ function renderProfile() {
 }
 
 /* ---------- advisor chat ---------- */
+function priorHistory() {
+  const all = store.listSnapshots();
+  const i = all.findIndex((s) => s.id === currentSnapshotId);
+  return i > 0 ? all.slice(0, i) : [];
+}
+
 function initChat(a, history) {
   const log = $("#chatLog"), chips = $("#chatChips"), input = $("#chatInput"), send = $("#chatSend");
   function add(text, who) {
@@ -339,7 +342,7 @@ function initChat(a, history) {
   });
   function ask(text) {
     add(esc(text), "me");
-    setTimeout(() => { add(answer(text, a, history), "bot"); }, 250);
+    setTimeout(() => { add(answer(text, a, priorHistory()), "bot"); }, 250);
   }
   send.onclick = function () {
     const v = input.value.trim();
