@@ -7,14 +7,17 @@ import { demoTx } from "./demo.js";
 import { answer, SUGGESTED } from "./advisor.js";
 import { series, latestDelta } from "./dynamics.js";
 import * as store from "./store.js";
+import { apiRegister, apiLogin, apiLogout, apiMe } from "./api.js";
 
 const $ = (s, r) => (r || document).querySelector(s);
 const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const R = document.documentElement;
 
-/* current snapshot open in разбор, and screen shown before profile (for back-navigation) */
+/* current snapshot open in разбор, and screen shown before profile/auth (for back-navigation) */
 let currentSnapshotId = null;
 let previousScreen = "entry";
+/* {id,email,name} of the signed-in user, or null in guest mode */
+let currentUser = null;
 
 /* theme */
 function setTheme(t) {
@@ -28,6 +31,158 @@ $("#themeBtn").onclick = function () {
   const c = R.getAttribute("data-theme") === "light" ? "light" : "dark";
   setTheme(c === "light" ? "dark" : "light");
 };
+
+/* ---------- account header (login button / signed-in label) ---------- */
+const acctLabel = document.createElement("span");
+acctLabel.id = "acctLabel";
+acctLabel.className = "hidden";
+acctLabel.style.cssText = "font-size:12px;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+const loginBtn = document.createElement("button");
+loginBtn.type = "button";
+loginBtn.id = "loginBtn";
+loginBtn.className = "snap-btn";
+loginBtn.textContent = "Войти";
+$("#settingsBtn").insertAdjacentElement("beforebegin", loginBtn);
+loginBtn.insertAdjacentElement("beforebegin", acctLabel);
+loginBtn.onclick = function () {
+  previousScreen = visibleScreenName();
+  renderAuth();
+  showScreen("auth");
+};
+
+function updateHeaderAccount() {
+  if (store.getMode() === "api" && currentUser) {
+    loginBtn.classList.add("hidden");
+    acctLabel.classList.remove("hidden");
+    acctLabel.textContent = currentUser.name || currentUser.email;
+    acctLabel.title = currentUser.email;
+  } else {
+    loginBtn.classList.remove("hidden");
+    acctLabel.classList.add("hidden");
+    acctLabel.textContent = "";
+    acctLabel.title = "";
+  }
+}
+
+/* ---------- auth screen (dynamically inserted; see app.html for other sections) ---------- */
+const authSection = document.createElement("section");
+authSection.className = "section hidden";
+authSection.id = "auth";
+$("#profile").insertAdjacentElement("afterend", authSection);
+
+function mapAuthError(e) {
+  if (e && e.code === 401) return "Неверный email или пароль";
+  if (e && e.code === 409) return "Такой email уже зарегистрирован";
+  if (e && e.code === 400) return "Проверь email и пароль (мин. 6 символов)";
+  return "Не удалось подключиться. Попробуй ещё раз.";
+}
+
+function renderAuth() {
+  let h = "";
+  h += '<div class="eyebrow">Аккаунт</div>';
+  h += '<h1 class="h-title">Войти или создать аккаунт</h1>';
+  h += '<div class="prof-field"><input type="email" id="authEmail" class="prof-input" placeholder="Email" autocomplete="email"></div>';
+  h += '<div class="prof-field" style="margin-top:10px"><input type="password" id="authPassword" class="prof-input" placeholder="Пароль" autocomplete="current-password"></div>';
+  h += '<div class="btn-line">'
+    + '<button class="btn btn--pri" id="authLoginBtn">Войти</button>'
+    + '<button class="btn" id="authRegisterBtn">Создать аккаунт</button>'
+    + '</div>';
+  h += '<div class="note" id="authError" style="color:var(--rust);min-height:14px"></div>';
+  h += '<button class="cta-again" id="authBackBtn">← Назад без аккаунта</button>';
+  authSection.innerHTML = h;
+
+  $("#authLoginBtn").onclick = function () { submitAuth("login"); };
+  $("#authRegisterBtn").onclick = function () { submitAuth("register"); };
+  $("#authBackBtn").onclick = function () { showScreen(previousScreen); };
+}
+
+async function submitAuth(kind) {
+  const email = $("#authEmail").value.trim();
+  const password = $("#authPassword").value;
+  const errEl = $("#authError");
+  errEl.textContent = "";
+  let res;
+  try {
+    res = kind === "login" ? await apiLogin(email, password) : await apiRegister(email, password);
+  } catch (e) {
+    errEl.textContent = mapAuthError(e);
+    return;
+  }
+  currentUser = res.user;
+  store.setMode("api");
+  const localCount = store.listSnapshots().length;
+  let mergedCount = null;
+  try {
+    if (localCount > 0 && confirm("Перенести " + localCount + " локальных разборов в аккаунт?")) {
+      mergedCount = await store.mergeLocalToServer();
+    }
+    await store.syncFromServer();
+  } catch (e) {
+    // best-effort: login already succeeded, keep going on local cache
+  }
+  updateHeaderAccount();
+  goToScreen(previousScreen);
+  if (mergedCount !== null) showToast("Перенесено " + mergedCount);
+}
+
+/* ---------- toast (transient, e.g. merge success / session expired) ---------- */
+let toastTimer = null;
+function showToast(text) {
+  let t = document.getElementById("toast");
+  if (!t) {
+    t = document.createElement("div");
+    t.id = "toast";
+    t.className = "toast";
+    document.body.appendChild(t);
+  }
+  t.textContent = text;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+/* ---------- offline note: prepended to whichever screen is currently visible ---------- */
+function activeScreenEl() {
+  return ["result", "dynamics", "profile", "auth", "entry"].map((id) => $("#" + id)).find((el) => el && !el.classList.contains("hidden")) || $("#result");
+}
+function showOfflineNote() {
+  const el = activeScreenEl();
+  if (!el) return;
+  let note = el.querySelector(".offline-note");
+  if (!note) {
+    note = document.createElement("div");
+    note.className = "note offline-note";
+    note.style.color = "var(--amber)";
+    el.insertAdjacentElement("afterbegin", note);
+  }
+  note.textContent = "Офлайн: изменения сохранены локально, синхронизируются позже";
+}
+
+/* ---------- session expiry: any 401 from an api-mode call while logged in ---------- */
+function sessionExpired() {
+  if (store.getMode() !== "api") return;
+  store.setMode("local");
+  currentUser = null;
+  updateHeaderAccount();
+  showToast("Сессия истекла — работаешь локально");
+}
+
+/* ---------- which screen is currently shown / go to a screen with fresh content ---------- */
+function visibleScreenName() {
+  if (!$("#dynamics").classList.contains("hidden")) return "dynamics";
+  if (!$("#result").classList.contains("hidden")) return "result";
+  if (!$("#profile").classList.contains("hidden")) return "profile";
+  return "entry";
+}
+function goToScreen(name) {
+  if (name === "dynamics") { renderDynamics(); showScreen("dynamics"); return; }
+  if (name === "profile") { renderProfile(); showScreen("profile"); return; }
+  if (name === "result" && currentSnapshotId && store.getSnapshot(currentSnapshotId)) {
+    render(store.getSnapshot(currentSnapshotId).analysis, store.listSnapshots());
+    return;
+  }
+  showScreen("entry");
+}
 
 /* ---------- inline parse-error message (Task 11) ---------- */
 const parseErrorEl = document.createElement("div");
@@ -66,6 +221,7 @@ function showScreen(name) {
   $("#result").classList.toggle("hidden", name !== "result");
   $("#dynamics").classList.toggle("hidden", name !== "dynamics");
   $("#profile").classList.toggle("hidden", name !== "profile");
+  $("#auth").classList.toggle("hidden", name !== "auth");
   $("#resultNav").classList.toggle("hidden", name !== "result" && name !== "dynamics");
   if (name === "result") { $("#navResult").classList.add("active"); $("#navDynamics").classList.remove("active"); }
   if (name === "dynamics") { $("#navDynamics").classList.add("active"); $("#navResult").classList.remove("active"); }
@@ -111,10 +267,17 @@ function recsHtml(a) {
 
 function wireRecCheckboxes() {
   $$("#result .rec__cb").forEach((cb) => {
-    cb.onchange = function () {
+    cb.onchange = async function () {
       if (!currentSnapshotId) return;
-      store.setRecDone(currentSnapshotId, this.dataset.recid, this.checked);
-      this.closest(".rec").classList.toggle("rec--done", this.checked);
+      const recId = this.dataset.recid, done = this.checked;
+      this.closest(".rec").classList.toggle("rec--done", done);
+      try {
+        const res = await store.pushRecDone(currentSnapshotId, recId, done);
+        if (res && res.offline) showOfflineNote();
+      } catch (e) {
+        store.setRecDone(currentSnapshotId, recId, done);
+        sessionExpired();
+      }
     };
   });
 }
@@ -279,6 +442,12 @@ function renderProfile() {
   h += '<div class="eyebrow">Профиль</div>';
   h += '<h1 class="h-title">Настройки</h1>';
 
+  if (store.getMode() === "api" && currentUser) {
+    h += '<div class="blk-h">Аккаунт</div>';
+    h += '<div class="note" style="text-align:left;margin-bottom:10px">Аккаунт: ' + esc(currentUser.email) + '</div>';
+    h += '<button class="btn" id="logoutBtn" style="width:100%">Выйти</button>';
+  }
+
   h += '<div class="blk-h">Имя</div>';
   h += '<div class="prof-field"><input type="text" id="profName" class="prof-input" placeholder="Как к тебе обращаться" value="' + escAttr(profile.name || "") + '"></div>';
 
@@ -303,13 +472,46 @@ function renderProfile() {
 
   $("#profile").innerHTML = h;
 
-  $("#profName").oninput = function () { store.setProfile({ name: this.value }); };
+  $("#profName").oninput = async function () {
+    const name = this.value;
+    try {
+      const res = await store.pushName(name);
+      if (res && res.offline) showOfflineNote();
+    } catch (e) {
+      store.setProfile({ name });
+      sessionExpired();
+    }
+    updateHeaderAccount();
+  };
   $("#themeLight").onclick = function () { setTheme("light"); renderProfile(); };
   $("#themeDark").onclick = function () { setTheme("dark"); renderProfile(); };
   $$("#profile [data-open]").forEach((btn) => { btn.onclick = function () { openSnapshot(this.dataset.open); }; });
-  $$("#profile [data-del]").forEach((btn) => { btn.onclick = function () { store.deleteSnapshot(this.dataset.del); renderProfile(); }; });
+  $$("#profile [data-del]").forEach((btn) => {
+    btn.onclick = async function () {
+      const id = this.dataset.del;
+      try {
+        const res = await store.removeSnapshot(id);
+        renderProfile();
+        if (res && res.offline) showOfflineNote();
+      } catch (e) {
+        store.deleteSnapshot(id);
+        renderProfile();
+        sessionExpired();
+      }
+    };
+  });
   const exportBtn = $("#profExport");
   if (exportBtn) exportBtn.onclick = exportSnapshots;
+  const logoutBtn = $("#logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.onclick = async function () {
+      await apiLogout();
+      store.setMode("local");
+      currentUser = null;
+      updateHeaderAccount();
+      renderProfile();
+    };
+  }
   $("#profBack").onclick = function () {
     if (previousScreen === "dynamics") renderDynamics();
     showScreen(previousScreen);
@@ -354,13 +556,28 @@ function initChat(a, history) {
 }
 
 /* ---------- entry wiring ---------- */
-function run(tx, source) {
+async function run(tx, source) {
   if (!tx || !tx.length) { showParseError(true); return; }
   showParseError(false);
   const analysis = analyze(tx);
   analysis.thinData = computeThinData(tx);
-  currentSnapshotId = store.available() ? store.saveSnapshot(analysis, source).id : null;
+  let offline = false;
+  if (store.available()) {
+    const snap = store.saveSnapshot(analysis, source);
+    currentSnapshotId = snap.id;
+    if (store.getMode() === "api") {
+      try {
+        const res = await store.pushSnapshot(snap);
+        offline = !!(res && res.offline);
+      } catch (e) {
+        sessionExpired();
+      }
+    }
+  } else {
+    currentSnapshotId = null;
+  }
   render(analysis, store.listSnapshots());
+  if (offline) showOfflineNote();
 }
 
 $("#navResult").onclick = function () {
@@ -371,9 +588,7 @@ $("#navDynamics").onclick = function () {
   showScreen("dynamics");
 };
 $("#settingsBtn").onclick = function () {
-  previousScreen = $("#dynamics").classList.contains("hidden")
-    ? ($("#result").classList.contains("hidden") ? "entry" : "result")
-    : "dynamics";
+  previousScreen = visibleScreenName();
   renderProfile();
   showScreen("profile");
 };
@@ -406,3 +621,16 @@ drop.addEventListener("drop", (e) => {
   rd.readAsText(f, "utf-8");
 });
 drop.addEventListener("click", () => $("#csvFile").click());
+
+/* ---------- startup: pick up an existing server session, else stay in guest mode ---------- */
+(async function bootstrap() {
+  const res = await apiMe();
+  if (res && res.user) {
+    currentUser = res.user;
+    store.setMode("api");
+    await store.syncFromServer();
+  } else {
+    store.setMode("local");
+  }
+  updateHeaderAccount();
+})();
