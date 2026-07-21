@@ -66,13 +66,21 @@ function isNetworkError(e) {
   return !!(e && e.networkError);
 }
 
-export async function syncFromServer() {
+export async function syncFromServer(opts) {
   if (mode !== "api") return 0;
   let list;
   try {
     list = await apiListSnapshots();
   } catch (e) {
     return 0;
+  }
+  if (opts && opts.preserveLocal) {
+    // Пользователь отказался от переноса: локальные разборы не затираем —
+    // объединяем (серверная версия побеждает при совпадении id).
+    const local = read(SNAP_KEY, []);
+    const ids = new Set(list.map((s) => s.id));
+    for (const s of local) if (!ids.has(s.id)) list.push(s);
+    list.sort((a, b) => a.date - b.date);
   }
   write(SNAP_KEY, list);
   return list.length;

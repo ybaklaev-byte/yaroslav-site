@@ -112,11 +112,17 @@ async function submitAuth(kind) {
   store.setMode("api");
   const localCount = store.listSnapshots().length;
   let mergedCount = null;
+  let declinedMerge = false;
   try {
-    if (localCount > 0 && confirm("Перенести " + localCount + " локальных разборов в аккаунт?")) {
-      mergedCount = await store.mergeLocalToServer();
+    if (localCount > 0) {
+      if (confirm("Перенести " + localCount + " локальных разборов в аккаунт?")) {
+        mergedCount = await store.mergeLocalToServer();
+      } else {
+        declinedMerge = true;
+      }
     }
-    await store.syncFromServer();
+    // При отказе от переноса локальные разборы не затираем серверным списком
+    await store.syncFromServer(declinedMerge ? { preserveLocal: true } : undefined);
   } catch (e) {
     // best-effort: login already succeeded, keep going on local cache
   }

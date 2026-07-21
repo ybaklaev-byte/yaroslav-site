@@ -124,3 +124,29 @@ test("offline: pushSnapshot in api mode does not throw when fetch rejects, saves
 
   store.setMode("local");
 });
+
+test("syncFromServer({preserveLocal:true}) keeps local-only snapshots (merge, server wins by id)", async () => {
+  // local has s-loc (local-only) and s-both (older local version)
+  store.setMode("local");
+  store.saveSnapshot({ score: 1 }, "demo"); // will get generated id — replace below for determinism
+  localStorage.setItem("fin-snapshots-v1", JSON.stringify([
+    { id: "s-loc", date: 100, source: "demo", analysis: { score: 1 }, recDone: {} },
+    { id: "s-both", date: 200, source: "demo", analysis: { score: 2 }, recDone: {} }
+  ]));
+  // server returns s-both (newer analysis) and s-srv
+  mockFetch(async () => ({
+    ok: true, status: 200,
+    json: async () => ([
+      { id: "s-both", date: 200, source: "csv", analysis: { score: 22 }, recDone: {} },
+      { id: "s-srv", date: 300, source: "csv", analysis: { score: 3 }, recDone: {} }
+    ])
+  }));
+  store.setMode("api");
+  const n = await store.syncFromServer({ preserveLocal: true });
+  const list = store.listSnapshots();
+  const ids = list.map((s) => s.id).sort();
+  assert.deepEqual(ids, ["s-both", "s-loc", "s-srv"]);
+  assert.equal(list.find((s) => s.id === "s-both").analysis.score, 22); // server wins
+  assert.equal(list.find((s) => s.id === "s-loc").analysis.score, 1);  // local preserved
+  store.setMode("local");
+});
