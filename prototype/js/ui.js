@@ -33,6 +33,37 @@ $("#themeBtn").onclick = function () {
   setTheme(c === "light" ? "dark" : "light");
 };
 
+/* ---------- inline parse-error message (Task 11) ---------- */
+const parseErrorEl = document.createElement("div");
+parseErrorEl.id = "parseError";
+parseErrorEl.className = "note hidden";
+parseErrorEl.style.color = "var(--rust)";
+$("#drop").insertAdjacentElement("afterend", parseErrorEl);
+function showParseError(show) {
+  parseErrorEl.textContent = show
+    ? "Не удалось прочитать выписку. Нужны колонки: дата · сумма · описание. Попробуй демо."
+    : "";
+  parseErrorEl.classList.toggle("hidden", !show);
+}
+
+/* ---------- no-storage notice (Task 11), shown once on load ---------- */
+if (!store.available()) {
+  const noStoreEl = document.createElement("div");
+  noStoreEl.className = "note";
+  noStoreEl.textContent = "История не сохранится: браузер блокирует локальное хранилище.";
+  $("#entry").appendChild(noStoreEl);
+}
+
+/* ---------- thin-data heuristic (Task 11): true when the statement's
+   date span covers under ~a month, so per-month figures are unreliable ---------- */
+function computeThinData(tx) {
+  if (!tx || tx.length < 2) return true;
+  const times = tx.map((t) => t.ts).filter((t) => typeof t === "number" && !isNaN(t));
+  if (times.length < 2) return false;
+  const span = Math.max.apply(null, times) - Math.min.apply(null, times);
+  return span < 27 * 24 * 60 * 60 * 1000;
+}
+
 /* ---------- screen switching ---------- */
 function showScreen(name) {
   $("#entry").classList.toggle("hidden", name !== "entry");
@@ -155,6 +186,9 @@ function render(a, history) {
   let h = "";
   h += '<div class="eyebrow">Твой разбор · ' + a.nMonths + ' мес · ' + rub(a.expense) + ' трат</div>';
   h += '<h1 class="h-title">Финансовое здоровье</h1>';
+  if (a.thinData) {
+    h += '<div class="note" style="text-align:left;color:var(--rust);margin:-6px 0 16px">Разбор ориентировочный: мало данных.</div>';
+  }
 
   // score gauge
   h += '<div class="score-card">'
@@ -166,19 +200,22 @@ function render(a, history) {
     + '<div class="score-sub">' + vsub + '</div></div>';
 
   // metrics
-  const srCls = a.savingsRate >= 0.2 ? "good" : a.savingsRate >= 0 ? "warn" : "bad";
+  const srCls = a.noIncome ? "" : a.savingsRate >= 0.2 ? "good" : a.savingsRate >= 0 ? "warn" : "bad";
   const cuCls = a.cushionMonths >= 3 ? "good" : a.cushionMonths >= 1 ? "warn" : "bad";
   const dsCls = a.discShare <= 0.2 ? "good" : a.discShare <= 0.35 ? "warn" : "bad";
   h += '<div class="mgrid">'
-    + metric("Норма сбережений", pct(a.savingsRate), srCls, "откладываешь от дохода")
+    + metric("Норма сбережений", a.noIncome ? "—" : pct(a.savingsRate), srCls, "откладываешь от дохода")
     + metric("Подушка", (a.cushionMonths < 0.1 ? "—" : a.cushionMonths.toFixed(1)) + " мес", cuCls, "хватит прожить")
     + metric("Необязательные траты", pct(a.discShare), dsCls, "кафе, такси, шопинг…")
     + '</div>';
   h += '<div class="mgrid" style="margin-top:12px">'
     + metric("Доход / мес", rub(a.incMo), "", "в среднем")
     + metric("Расход / мес", rub(a.expMo), "", "в среднем")
-    + metric("Остаётся / мес", (a.net >= 0 ? "+" : "−") + rub(a.net), a.net >= 0 ? "good" : "bad", "доход минус расход")
+    + metric("Остаётся / мес", a.noIncome ? "—" : (a.net >= 0 ? "+" : "−") + rub(a.net), a.noIncome ? "" : a.net >= 0 ? "good" : "bad", "доход минус расход")
     + '</div>';
+  if (a.noIncome) {
+    h += '<div class="note">Доход в выписке не найден — часть показателей недоступна.</div>';
+  }
 
   // where money goes
   h += '<div class="blk-h">Куда уходят деньги</div>';
@@ -315,8 +352,10 @@ function initChat(a, history) {
 
 /* ---------- entry wiring ---------- */
 function run(tx, source) {
-  if (!tx || !tx.length) { alert("Не удалось прочитать операции из файла."); return; }
+  if (!tx || !tx.length) { showParseError(true); return; }
+  showParseError(false);
   const analysis = analyze(tx);
+  analysis.thinData = computeThinData(tx);
   currentSnapshotId = store.available() ? store.saveSnapshot(analysis, source).id : null;
   render(analysis, store.listSnapshots());
 }
@@ -344,7 +383,7 @@ $("#csvFile").onchange = function () {
   const rd = new FileReader();
   rd.onload = function () {
     const rows = parseCSV(rd.result);
-    if (!rows) { alert("Не похоже на CSV."); return; }
+    if (!rows) { showParseError(true); return; }
     run(rowsToTx(rows), f.name || "csv");
   };
   rd.readAsText(f, "utf-8");
@@ -358,7 +397,8 @@ drop.addEventListener("drop", (e) => {
   const rd = new FileReader();
   rd.onload = function () {
     const rows = parseCSV(rd.result);
-    if (rows) run(rowsToTx(rows), f.name || "csv");
+    if (!rows) { showParseError(true); return; }
+    run(rowsToTx(rows), f.name || "csv");
   };
   rd.readAsText(f, "utf-8");
 });
