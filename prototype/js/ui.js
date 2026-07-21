@@ -5,6 +5,7 @@ import { parseCSV, rowsToTx } from "./parser.js";
 import { analyze } from "./analyzer.js";
 import { demoTx } from "./demo.js";
 import { answer, SUGGESTED } from "./advisor.js";
+import { series, latestDelta } from "./dynamics.js";
 import * as store from "./store.js";
 
 const $ = (s, r) => (r || document).querySelector(s);
@@ -28,6 +29,7 @@ $("#themeBtn").onclick = function () {
 function rub(n) { return Math.round(Math.abs(n)).toLocaleString("ru-RU") + " ₽"; }
 function pct(n) { return Math.round(n * 100) + "%"; }
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+function fmtDate(ts) { return new Date(ts).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }); }
 
 /* ---------- gauge geometry ---------- */
 function polar(cx, cy, r, deg) { const a = deg * Math.PI / 180; return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }; }
@@ -53,6 +55,59 @@ function recsHtml(a) {
     + (r.save > 0 ? '<div class="rec__save">−' + rub(r.save) + '/мес</div>' : "")
     + '</div></div>'
   ).join("");
+}
+
+/* ---------- dynamics ---------- */
+function scoreChart(s) {
+  const w = 600, h = 160, pad = 22;
+  const scores = s.score;
+  const n = scores.length;
+  const min = Math.min.apply(null, scores), max = Math.max.apply(null, scores);
+  const range = max - min;
+  const stepX = n > 1 ? (w - pad * 2) / (n - 1) : 0;
+  const pts = scores.map((v, i) => {
+    const x = pad + i * stepX;
+    const y = range === 0 ? h / 2 : pad + (h - pad * 2) * (1 - (v - min) / range);
+    return { x, y };
+  });
+  const polyline = pts.map((p) => p.x.toFixed(1) + "," + p.y.toFixed(1)).join(" ");
+  const dots = pts.map((p) => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="4" fill="var(--amber)"/>').join("");
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" class="dyn-svg">'
+    + '<polyline points="' + polyline + '" fill="none" stroke="var(--amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'
+    + dots
+    + '<text x="' + pad + '" y="14" class="dyn-lbl">макс ' + max + '</text>'
+    + '<text x="' + pad + '" y="' + (h - 8) + '" class="dyn-lbl">мин ' + min + '</text>'
+    + '</svg>';
+}
+
+function renderDynamics() {
+  const history = store.listSnapshots();
+  const box = $("#dynamics");
+  if (history.length < 2) {
+    box.innerHTML = '<div class="eyebrow">Динамика</div>'
+      + '<h1 class="h-title">Как меняется финансовое здоровье</h1>'
+      + '<div class="note">Сделай ещё хотя бы один разбор в другой период — тогда покажу динамику.</div>';
+    return;
+  }
+  const s = series(history), d = latestDelta(history);
+  const prevScore = s.score[s.score.length - 2], lastScore = s.score[s.score.length - 1];
+  const scoreDeltaTxt = (d.score >= 0 ? "+" : "−") + Math.abs(d.score);
+  const expDeltaTxt = (d.expMo >= 0 ? "+" : "−") + rub(d.expMo);
+  const srDeltaTxt = (d.savingsRate >= 0 ? "+" : "−") + Math.round(Math.abs(d.savingsRate) * 100) + " п.п.";
+
+  let h = "";
+  h += '<div class="eyebrow">Твоя динамика · ' + s.dates.length + ' разбор' + (s.dates.length === 2 ? "а" : "ов") + '</div>';
+  h += '<h1 class="h-title">Как меняется финансовое здоровье</h1>';
+  h += '<div class="blk-h">Score по разборам</div>';
+  h += '<div class="dyn-chart">' + scoreChart(s) + '</div>';
+  h += '<div class="dyn-dates">' + s.dates.map((dt) => "<span>" + fmtDate(dt) + "</span>").join("") + '</div>';
+  h += '<div class="blk-h">С прошлого разбора</div>';
+  h += '<div class="mgrid">'
+    + metric("Score", lastScore + " (" + scoreDeltaTxt + ")", d.score >= 0 ? "good" : "bad", "было " + prevScore)
+    + metric("Расход / мес", expDeltaTxt, d.expMo <= 0 ? "good" : "bad", "изменение")
+    + metric("Норма сбережений", srDeltaTxt, d.savingsRate >= 0 ? "good" : "bad", "изменение")
+    + '</div>';
+  box.innerHTML = h;
 }
 
 function render(a, history) {
@@ -119,11 +174,17 @@ function render(a, history) {
 
   $("#result").innerHTML = h;
   $("#result").classList.remove("hidden");
+  $("#dynamics").classList.add("hidden");
   $("#entry").classList.add("hidden");
+  $("#resultNav").classList.remove("hidden");
+  $("#navResult").classList.add("active");
+  $("#navDynamics").classList.remove("active");
   window.scrollTo(0, 0);
   initChat(a, history);
   $("#again").onclick = function () {
     $("#result").classList.add("hidden");
+    $("#dynamics").classList.add("hidden");
+    $("#resultNav").classList.add("hidden");
     $("#entry").classList.remove("hidden");
     window.scrollTo(0, 0);
   };
@@ -167,6 +228,22 @@ function run(tx, source) {
   if (store.available()) store.saveSnapshot(analysis, source);
   render(analysis, store.listSnapshots());
 }
+
+$("#navResult").onclick = function () {
+  $("#navResult").classList.add("active");
+  $("#navDynamics").classList.remove("active");
+  $("#result").classList.remove("hidden");
+  $("#dynamics").classList.add("hidden");
+  window.scrollTo(0, 0);
+};
+$("#navDynamics").onclick = function () {
+  $("#navDynamics").classList.add("active");
+  $("#navResult").classList.remove("active");
+  renderDynamics();
+  $("#result").classList.add("hidden");
+  $("#dynamics").classList.remove("hidden");
+  window.scrollTo(0, 0);
+};
 
 $("#useDemo").onclick = function () { run(demoTx(), "demo"); };
 $("#pickFile").onclick = function () { $("#csvFile").click(); };

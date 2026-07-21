@@ -108,6 +108,18 @@ h1,h2,h3{line-height:1.15;margin:0;text-wrap:balance;}
 .chat__note{font-family:var(--fm);font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
 
 .cta-again{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;padding:12px;font-family:var(--fb);font-size:13.5px;cursor:pointer;margin:20px 0 40px;}
+
+/* result/dynamics nav */
+.seg{display:flex;gap:8px;margin:14px 0 0;}
+.seg__btn{flex:1;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;padding:10px;font-family:var(--fb);font-size:13.5px;font-weight:600;cursor:pointer;}
+.seg__btn.active{background:var(--amber);color:#1a1206;border-color:var(--amber);}
+
+/* dynamics chart */
+.dyn-chart{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;}
+.dyn-svg{width:100%;height:auto;display:block;}
+.dyn-lbl{font-family:var(--fm);font-size:10px;fill:var(--muted);}
+.dyn-dates{display:flex;justify-content:space-between;font-family:var(--fm);font-size:10.5px;color:var(--muted);margin-top:6px;}
+
 .hidden{display:none;}
 @media(max-width:520px){.mgrid{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
@@ -146,8 +158,17 @@ h1,h2,h3{line-height:1.15;margin:0;text-wrap:balance;}
     <div class="note">Прототип: разбор считается прямо в браузере, данные никуда не отправляются и не сохраняются.</div>
   </section>
 
+  <!-- RESULT / DYNAMICS NAV -->
+  <div class="seg hidden" id="resultNav">
+    <button class="seg__btn active" id="navResult">Разбор</button>
+    <button class="seg__btn" id="navDynamics">Динамика</button>
+  </div>
+
   <!-- RESULT -->
   <section class="section hidden" id="result"></section>
+
+  <!-- DYNAMICS -->
+  <section class="section hidden" id="dynamics"></section>
 
 </main>
 
