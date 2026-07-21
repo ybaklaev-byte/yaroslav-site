@@ -1,0 +1,5 @@
+{
+  "name": "balance-server",
+  "private": true,
+  "type": "module"
+}
