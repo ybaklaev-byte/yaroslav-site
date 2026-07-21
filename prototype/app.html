@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Баланс — финансовый разбор и советник</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Ctext%20y='.9em'%20font-size='88'%3E%F0%9F%92%B0%3C/text%3E%3C/svg%3E">
+<meta name="theme-color" content="#12151A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --amber:#C98A3E; --trail:#4C7A64; --rust:#A65142;
+  --fd:"Fraunces",serif; --fb:"Inter",sans-serif; --fm:"JetBrains Mono",monospace;
+  --bg:#12151A; --fg:#F4F1EA; --line:#2A2F38; --surface:#1B1F26; --surface2:#222831; --muted:#8A93A0; --paper:#EFEAE0; --ink:#1E2226;
+}
+:root[data-theme="light"]{
+  --bg:#F4F1EA; --fg:#22262C; --line:#DAD3C4; --surface:#FFFFFF; --surface2:#F3EEE3; --muted:#7A756B; --paper:#FFFFFF; --ink:#22262C;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{scroll-behavior:smooth;}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--fb);-webkit-font-smoothing:antialiased;line-height:1.6;}
+.wrap{max-width:720px;margin:0 auto;padding:0 20px;}
+a{color:inherit;}
+
+/* top */
+.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);}
+.top__in{display:flex;align-items:center;justify-content:space-between;height:56px;}
+.brand{font-family:var(--fd);font-weight:600;font-size:18px;display:flex;align-items:center;gap:7px;}
+.top__r{display:flex;gap:8px;}
+.tbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;font-size:14px;display:grid;place-items:center;text-decoration:none;}
+.tbtn:hover{border-color:var(--amber);}
+
+.section{padding:26px 0;}
+h1,h2,h3{line-height:1.15;margin:0;text-wrap:balance;}
+.eyebrow{font-family:var(--fm);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);margin-bottom:12px;}
+.h-title{font-family:var(--fd);font-weight:600;font-size:clamp(1.9rem,5vw,2.5rem);letter-spacing:-.01em;margin-bottom:14px;}
+.lead{font-size:16px;color:var(--muted);margin:0 0 24px;}
+
+/* entry */
+.drop{border:1.5px dashed var(--line);border-radius:18px;padding:34px 22px;text-align:center;background:var(--surface);}
+.drop.over{border-color:var(--amber);background:var(--surface2);}
+.drop__ic{font-size:34px;}
+.drop__t{font-size:15px;font-weight:600;margin:12px 0 4px;}
+.drop__s{font-size:13px;color:var(--muted);}
+.btn-line{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+.btn{flex:1;min-width:150px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:13px;font-family:var(--fb);font-size:14.5px;font-weight:600;cursor:pointer;text-align:center;}
+.btn--pri{background:var(--amber);color:#1a1206;border-color:var(--amber);}
+.btn--pri:hover{background:#DA9A4C;}
+.note{font-family:var(--fm);font-size:11px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5;}
+
+/* health score */
+.score-card{background:var(--paper);color:var(--ink);border-radius:20px;padding:24px;text-align:center;margin-bottom:16px;}
+.gauge{position:relative;width:180px;height:100px;margin:6px auto 8px;}
+.gauge svg{width:180px;height:100px;overflow:visible;}
+.gauge__v{position:absolute;left:0;right:0;bottom:2px;font-family:var(--fd);font-weight:600;font-size:40px;line-height:1;}
+.gauge__max{font-size:16px;color:#7a756b;}
+.score-verdict{font-family:var(--fd);font-weight:600;font-size:20px;margin-top:6px;}
+.score-sub{font-size:13.5px;color:#6b6558;margin-top:6px;}
+
+/* metrics */
+.mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:8px;}
+.metric{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;}
+.metric__l{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+.metric__v{font-family:var(--fd);font-weight:600;font-size:20px;margin-top:6px;font-variant-numeric:tabular-nums;}
+.metric__h{font-size:11px;color:var(--muted);margin-top:3px;}
+.metric__v.good{color:var(--trail);} .metric__v.warn{color:var(--amber);} .metric__v.bad{color:var(--rust);}
+
+.blk-h{font-family:var(--fd);font-weight:600;font-size:18px;margin:26px 0 12px;}
+
+/* bars */
+.bar{margin-bottom:13px;}
+.bar__top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;font-size:14px;}
+.bar__v{font-family:var(--fm);font-size:12px;color:var(--muted);}
+.bar__track{height:9px;background:var(--surface2);border-radius:99px;overflow:hidden;}
+.bar__fill{height:100%;border-radius:99px;}
+
+/* flags */
+.flag{display:flex;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px;border-left:3px solid var(--muted);}
+.flag--bad{border-left-color:var(--rust);} .flag--warn{border-left-color:var(--amber);} .flag--good{border-left-color:var(--trail);}
+.flag__ic{font-size:18px;flex-shrink:0;}
+.flag__t{font-size:14px;font-weight:600;}
+.flag__d{font-size:13px;color:var(--muted);margin-top:2px;}
+
+/* recs */
+.rec{display:flex;gap:14px;padding:15px 0;border-bottom:1px dashed var(--line);}
+.rec:last-child{border-bottom:none;}
+.rec__n{font-family:var(--fd);font-weight:600;font-size:22px;color:var(--amber);width:34px;flex-shrink:0;line-height:1.1;}
+.rec__t{font-size:15px;font-weight:600;}
+.rec__d{font-size:13.5px;color:var(--muted);margin-top:3px;}
+.rec__save{font-family:var(--fm);font-size:12px;color:var(--trail);margin-top:4px;}
+
+/* advisor chat */
+.chat{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:6px;}
+.chat__log{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto;padding-right:4px;}
+.msg{max-width:85%;padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.5;}
+.msg.bot{background:var(--surface2);border-bottom-left-radius:4px;align-self:flex-start;}
+.msg.me{background:var(--amber);color:#1a1206;border-bottom-right-radius:4px;align-self:flex-end;}
+.msg b{font-weight:600;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px;}
+.chip{border:1px solid var(--line);background:var(--surface2);color:var(--fg);border-radius:99px;padding:8px 13px;font-size:12.5px;cursor:pointer;font-family:var(--fb);}
+.chip:hover{border-color:var(--amber);}
+.chat__in{display:flex;gap:8px;margin-top:10px;}
+.chat__in input{flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;color:var(--fg);font-family:var(--fb);font-size:14px;}
+.chat__in input:focus{outline:none;border-color:var(--amber);}
+.chat__send{border:none;background:var(--amber);color:#1a1206;border-radius:12px;width:44px;font-size:18px;cursor:pointer;}
+.chat__note{font-family:var(--fm);font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5;}
+
+.cta-again{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;padding:12px;font-family:var(--fb);font-size:13.5px;cursor:pointer;margin:20px 0 40px;}
+.hidden{display:none;}
+@media(max-width:520px){.mgrid{grid-template-columns:1fr;}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+:focus-visible{outline:2px solid var(--trail);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="wrap top__in">
+    <div class="brand">💰 Баланс</div>
+    <div class="top__r">
+      <a class="tbtn" href="index.html" title="На сайт">←</a>
+      <button class="tbtn" id="themeBtn" aria-label="Тема">◐</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ENTRY -->
+  <section class="section" id="entry">
+    <div class="eyebrow">Финансовый разбор</div>
+    <h1 class="h-title">Узнай своё финансовое состояние</h1>
+    <p class="lead">Загрузи выписку — получишь оценку финансового здоровья, разбор трат, риски и персональные рекомендации. Плюс советник, которому можно задать вопрос про свои деньги.</p>
+    <div class="drop" id="drop">
+      <div class="drop__ic">📄</div>
+      <div class="drop__t">Перетащи CSV-выписку сюда</div>
+      <div class="drop__s">дата · сумма · описание — без доступа к твоему банку</div>
+    </div>
+    <input type="file" id="csvFile" accept=".csv,.txt" class="hidden">
+    <div class="btn-line">
+      <button class="btn" id="pickFile">Выбрать файл</button>
+      <button class="btn btn--pri" id="useDemo">Посмотреть на демо-данных</button>
+    </div>
+    <div class="note">Прототип: разбор считается прямо в браузере, данные никуда не отправляются и не сохраняются.</div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="section hidden" id="result"></section>
+
+</main>
+
+<script>
+(function(){
+"use strict";
+var $=function(s,r){return (r||document).querySelector(s);};
+var R=document.documentElement;
+
+/* theme */
+var TK="fin-proto-theme";
+(function(){var s=null;try{s=localStorage.getItem(TK);}catch(e){}if(!s)s=matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";R.setAttribute("data-theme",s);})();
+$("#themeBtn").onclick=function(){var c=R.getAttribute("data-theme")==="light"?"light":"dark",n=c==="light"?"dark":"light";R.setAttribute("data-theme",n);try{localStorage.setItem(TK,n);}catch(e){}};
+
+/* ---------- categories & rules ---------- */
+var CATS={
+  food:{name:"Продукты",icon:"🛒",color:"#C98A3E",ess:true},
+  cafe:{name:"Кафе и рестораны",icon:"☕",color:"#A65142",ess:false},
+  taxi:{name:"Такси",icon:"🚕",color:"#4C7A64",ess:false},
+  transport:{name:"Транспорт",icon:"🚇",color:"#3E8DA6",ess:true},
+  fuel:{name:"Топливо",icon:"⛽",color:"#7C6BA6",ess:true},
+  home:{name:"Дом и ЖКХ",icon:"🏠",color:"#5EA98A",ess:true},
+  fun:{name:"Развлечения",icon:"🎬",color:"#C95E8A",ess:false},
+  health:{name:"Здоровье",icon:"💊",color:"#5E8AA9",ess:true},
+  shopping:{name:"Покупки",icon:"🛍️",color:"#B98A3E",ess:false},
+  alcohol:{name:"Алкоголь и табак",icon:"🍷",color:"#8A5EA9",ess:false},
+  connect:{name:"Связь и подписки",icon:"📱",color:"#3EA69A",ess:true},
+  other:{name:"Прочее",icon:"•",color:"#8A93A0",ess:false}
+};
+var RULES=[
+  ["food",/пятероч|пятёроч|pyaterochka|магнит|magnit|перекр|perekrest|ашан|auchan|лента|дикси|dixy|вкусвилл|vkusvill|продукт|мираторг|miratorg|пекарн|bukhanka|магазин продукт/i],
+  ["cafe",/кафе|кофе|coffee|ресторан|restoran|veranda|burger|kfc|вкусно|rostic|шоколад|столов|яндекс.?еда|yandex.?eda|\beda\b|достав|dostavka|самокат|pizza|додо/i],
+  ["taxi",/такси|taxi|uber|fasten|ситимобил|яндекс.?такси/i],
+  ["transport",/метро|metro|mos.?transport|strelka|тройка|troika|автобус|электричк/i],
+  ["fuel",/азс|azs|нефт|лукойл|lukoil|газпром|gazprom|роснефт|топлив|petrol|shell/i],
+  ["home",/жкх|коммунал|мосэнерго|энергосбыт|水|аренда|rent|мебель|leroy|ikea|икеа|хозтовар|твой дом/i],
+  ["fun",/кино|kino|театр|концерт|cinema|mori|подписк|\bplus\b|игр|netflix|steam|okko|кинопоиск|развлеч/i],
+  ["health",/аптек|apteka|gorzdrav|клиник|стомат|pharm|здоров|lab4u|инвитро|медси/i],
+  ["shopping",/ozon|wildberries|\bwb\b|dns|днс|мвидео|lamoda|детский мир|lcwaikiki|gold apple|letu|одежд|sportmaster/i],
+  ["alcohol",/krasnoe|красное.?бел|winelab|вино|пиво|beer|табак|tabak|бристоль|bristol/i],
+  ["connect",/beeline|билайн|mts|мтс|megafon|мегафон|tele2|ростелеком|rostelecom|связь|интернет|t-?bundle|сервисы яндекса/i]
+];
+function autoCat(desc){var d=desc||"";for(var i=0;i<RULES.length;i++)if(RULES[i][1].test(d))return RULES[i][0];return "other";}
+
+/* ---------- CSV ---------- */
+function splitLine(l,d){var o=[],c="",q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(ch==='"')q=!q;else if(ch===d&&!q){o.push(c);c="";}else c+=ch;}o.push(c);return o.map(function(s){return s.trim().replace(/^"|"$/g,"");});}
+function parseCSV(t){var ls=t.replace(/\r/g,"").split("\n").filter(function(l){return l.trim();});if(!ls.length)return null;var d=ls[0].split(";").length>ls[0].split(",").length?";":",";return ls.map(function(l){return splitLine(l,d);});}
+function parseAmt(s){if(s==null)return NaN;s=(""+s).replace(/ /g,"").replace(/[^\d,.\-]/g,"").replace(/\s/g,"").replace(/,/g,".");var p=s.split(".");if(p.length>2)s=p.slice(0,-1).join("")+"."+p[p.length-1];return parseFloat(s);}
+function parseDate(s){var m=(s||"").match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);if(!m)return null;var y=m[3].length===2?"20"+m[3]:m[3];return new Date(+y,+m[2]-1,+m[1]).getTime();}
+function rowsToTx(rows){
+  var start=rows[0].some(function(c){return /дата|сумма|опис|date|amount/i.test(c);})?1:0;
+  // detect columns
+  var n=rows[0].length,sample=rows.slice(start,start+6),dc=0,ac=1;
+  for(var c=0;c<n;c++){var vals=sample.map(function(r){return r[c]||"";});
+    if(vals.some(function(v){return /\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}/.test(v);}))dc=c;
+    else if(vals.some(function(v){return /^-?[\d\s]+[.,]\d{2}$/.test(v);}))ac=c;}
+  var best=-1,bl=0;for(var k=0;k<n;k++){if(k===dc||k===ac)continue;var avg=sample.reduce(function(s,r){return s+((r[k]||"").length);},0);if(avg>bl){bl=avg;best=k;}}
+  var descC=best>=0?best:2,out=[];
+  for(var i=start;i<rows.length;i++){var amt=parseAmt(rows[i][ac]);if(isNaN(amt)||amt===0)continue;out.push({ts:parseDate(rows[i][dc])||Date.now(),amount:amt,desc:rows[i][descC]||""});}
+  return out;
+}
+
+/* ---------- demo data ---------- */
+function demoTx(){
+  var now=Date.now(),D=86400000,tx=[];
+  function e(days,amt,desc){tx.push({ts:now-days*D,amount:-amt,desc:desc});}
+  function inc(days,amt,desc){tx.push({ts:now-days*D,amount:amt,desc:desc});}
+  inc(3,82000,"Зарплата"); inc(33,80000,"Зарплата"); inc(20,6000,"Возврат Авито");
+  var groc=["Пятёрочка","Магнит","Ашан","Перекрёсток","ВкусВилл"];
+  for(var i=0;i<26;i++)e(i*2+1,200+Math.round(Math.random()*1400),groc[i%5]);
+  e(2,3373,"LUKOIL AZS"); e(9,2100,"АЗС Нефтьмагистраль"); e(16,3000,"LUKOIL");
+  var caf=["Кофе Way","Ресторан Веранда","Вкусно и точка","Кофейня","Ланч кафе"];
+  for(var j=0;j<18;j++)e(j*3+1,250+Math.round(Math.random()*1600),caf[j%5]);
+  for(var t=0;t<15;t++)e(t*3+2,300+Math.round(Math.random()*2400),"Яндекс Такси");
+  e(5,2890,"Кино Mori"); e(19,3200,"Концерт"); e(30,199,"Яндекс Плюс подписка"); e(1,299,"Подписка");
+  e(6,1490,"Аптека Горздрав"); e(22,3400,"Клиника");
+  e(3,1780,"Коммуналка ЖКХ"); e(12,1200,"Хозтовары Твой Дом"); e(28,6019,"Мебель");
+  e(8,9494,"LCWaikiki одежда"); e(15,6000,"Gold Apple"); e(24,4200,"OZON");
+  e(4,1508,"Красное&Белое"); e(11,890,"WINELAB"); e(18,650,"Табак");
+  e(7,700,"Интернет Ростелеком"); e(14,650,"МТС связь");
+  e(10,55000,"Перевод на вклад"); // savings move
+  return tx;
+}
+
+/* ---------- analysis ---------- */
+function analyze(tx){
+  tx=tx.filter(function(t){return t.desc!==undefined;});
+  // internal/transfer detection (exclude from spending)
+  function isInternal(d){return /перевод на вклад|на накопит|перевод себе|пополнение брокер|между своими/i.test(d||"");}
+  var income=0,expense=0,byCat={},months={},savingsMove=0;
+  tx.forEach(function(t){
+    var m=new Date(t.ts); var mk=m.getFullYear()+"-"+(m.getMonth()+1);
+    if(t.amount>0){ if(!/кэшбэк|возврат/i.test(t.desc)) income+=t.amount; else income+=t.amount; }
+    else {
+      var a=-t.amount;
+      if(isInternal(t.desc)){ savingsMove+=a; return; }
+      expense+=a; var c=autoCat(t.desc); byCat[c]=(byCat[c]||0)+a;
+      months[mk]=(months[mk]||0)+a;
+    }
+  });
+  var nMonths=Math.max(1,Object.keys(months).length);
+  var incMo=income/nMonths, expMo=expense/nMonths;
+  var net=incMo-expMo, savingsRate=incMo>0?net/incMo:0;
+  // essential vs discretionary
+  var ess=0,disc=0;
+  Object.keys(byCat).forEach(function(c){ if(CATS[c]&&CATS[c].ess) ess+=byCat[c]; else disc+=byCat[c]; });
+  var discShare=expense>0?disc/expense:0;
+  // cushion: assume savings moves accumulated as buffer + a base; months covered
+  var buffer=savingsMove; // what they've been putting aside over the period
+  var cushionMonths=expMo>0?buffer/expMo:0;
+  // category array
+  var cats=Object.keys(byCat).map(function(c){return {id:c,cat:CATS[c]||CATS.other,sum:byCat[c],mo:byCat[c]/nMonths};}).sort(function(a,b){return b.sum-a.sum;});
+  // savings potential
+  var TRIM={cafe:.30,taxi:.35,fun:.40,shopping:.25,alcohol:.30,food:.12};
+  var potential=0,trimRecs=[];
+  cats.forEach(function(x){var r=TRIM[x.id];if(!r)return;var sv=x.mo*r;if(sv<150)return;potential+=sv;trimRecs.push({cat:x.cat,id:x.id,mo:x.mo,rate:r,save:sv});});
+  trimRecs.sort(function(a,b){return b.save-a.save;});
+  // ---- health score 0..100 ----
+  function clamp(v){return Math.max(0,Math.min(1,v));}
+  var fSav = clamp((savingsRate+0.05)/0.30);        // 0 at -5%, 1 at +25%
+  var fCush = clamp(cushionMonths/6);                // 1 at 6 months
+  var fDisc = clamp(1-(discShare-0.15)/0.35);         // 1 if <=15%, 0 if >=50%
+  var fBalance = clamp(net/ (incMo||1) *2 +0.4);      // living-in-zero proxy
+  var score = Math.round((fSav*0.34 + fCush*0.28 + fDisc*0.22 + fBalance*0.16)*100);
+  score=Math.max(4,Math.min(97,score));
+  return {income:income,expense:expense,nMonths:nMonths,incMo:incMo,expMo:expMo,net:net,
+    savingsRate:savingsRate,discShare:discShare,cushionMonths:cushionMonths,buffer:buffer,
+    cats:cats,potential:potential,trimRecs:trimRecs,score:score,ess:ess,disc:disc};
+}
+
+/* ---------- formatting ---------- */
+function rub(n){return Math.round(Math.abs(n)).toLocaleString("ru-RU")+" ₽";}
+function pct(n){return Math.round(n*100)+"%";}
+function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+
+var A=null; // current analysis
+
+function render(a){
+  A=a;
+  var verdict = a.score>=75?"Крепкое": a.score>=55?"Устойчивое": a.score>=38?"Уязвимое":"В зоне риска";
+  var vsub = a.score>=75?"Хороший запас и контроль над тратами.": a.score>=55?"В целом порядок, есть что усилить.": a.score>=38?"Есть заметные слабые места — см. рекомендации.":"Деньги под контролем слабо — начни с рекомендаций ниже.";
+  var col = a.score>=75?"var(--trail)": a.score>=55?"var(--amber)":"var(--rust)";
+  var deg = a.score/100*180, r=70, cx=90, cy=90;
+  var end = polar(cx,cy,r,180+deg);
+  var arc = describeArc(cx,cy,r,180,180+deg);
+  var bg = describeArc(cx,cy,r,180,360);
+
+  var h='';
+  h+='<div class="eyebrow">Твой разбор · '+a.nMonths+' мес · '+rub(a.expense)+' трат</div>';
+  h+='<h1 class="h-title">Финансовое здоровье</h1>';
+
+  // score gauge
+  h+='<div class="score-card">'
+    +'<div class="gauge"><svg viewBox="0 0 180 100">'
+    +'<path d="'+bg+'" fill="none" stroke="rgba(30,34,38,.14)" stroke-width="13" stroke-linecap="round"/>'
+    +'<path d="'+arc+'" fill="none" stroke="'+col+'" stroke-width="13" stroke-linecap="round"/>'
+    +'</svg><div class="gauge__v" style="color:'+col+'">'+a.score+'<span class="gauge__max">/100</span></div></div>'
+    +'<div class="score-verdict">'+verdict+' положение</div>'
+    +'<div class="score-sub">'+vsub+'</div></div>';
+
+  // metrics
+  var srCls=a.savingsRate>=0.2?"good":a.savingsRate>=0?"warn":"bad";
+  var cuCls=a.cushionMonths>=3?"good":a.cushionMonths>=1?"warn":"bad";
+  var dsCls=a.discShare<=0.2?"good":a.discShare<=0.35?"warn":"bad";
+  h+='<div class="mgrid">'
+    +metric("Норма сбережений",pct(a.savingsRate),srCls,"откладываешь от дохода")
+    +metric("Подушка",(a.cushionMonths<0.1?"—":a.cushionMonths.toFixed(1))+" мес",cuCls,"хватит прожить")
+    +metric("Необязательные траты",pct(a.discShare),dsCls,"кафе, такси, шопинг…")
+    +'</div>';
+  h+='<div class="mgrid" style="margin-top:12px">'
+    +metric("Доход / мес",rub(a.incMo),"","в среднем")
+    +metric("Расход / мес",rub(a.expMo),"","в среднем")
+    +metric("Остаётся / мес",(a.net>=0?"+":"−")+rub(a.net),a.net>=0?"good":"bad","доход минус расход")
+    +'</div>';
+
+  // where money goes
+  h+='<div class="blk-h">Куда уходят деньги</div>';
+  var mx=a.cats.length?a.cats[0].sum:1;
+  a.cats.slice(0,7).forEach(function(x){var w=x.sum/mx*100;
+    h+='<div class="bar"><div class="bar__top"><span>'+x.cat.icon+' '+x.cat.name+'</span><span class="bar__v">'+rub(x.sum)+' · '+pct(x.sum/a.expense)+'</span></div>'
+      +'<div class="bar__track"><div class="bar__fill" style="width:'+w.toFixed(1)+'%;background:'+x.cat.color+'"></div></div></div>';
+  });
+
+  // risks / observations
+  h+='<div class="blk-h">Риски и наблюдения</div>';
+  h+=flags(a);
+
+  // recommendations
+  h+='<div class="blk-h">Рекомендации</div>';
+  h+=recs(a);
+
+  // advisor
+  h+='<div class="blk-h">💬 Финансовый советник</div>';
+  h+='<div class="chat"><div class="chat__log" id="chatLog"></div>'
+    +'<div class="chips" id="chatChips"></div>'
+    +'<div class="chat__in"><input id="chatInput" placeholder="Спроси про свои финансы…" autocomplete="off"><button class="chat__send" id="chatSend">➤</button></div>'
+    +'<div class="chat__note">Прототип: советник отвечает на основе твоего разбора, без внешних сервисов. В продукте здесь — полноценный AI на базе реальной модели.</div></div>';
+
+  h+='<button class="cta-again" id="again">↺ Загрузить другую выписку</button>';
+
+  $("#result").innerHTML=h;
+  $("#result").classList.remove("hidden");
+  $("#entry").classList.add("hidden");
+  window.scrollTo(0,0);
+  initChat(a);
+  $("#again").onclick=function(){$("#result").classList.add("hidden");$("#entry").classList.remove("hidden");window.scrollTo(0,0);};
+}
+function metric(l,v,cls,h){return '<div class="metric"><div class="metric__l">'+l+'</div><div class="metric__v '+(cls||"")+'">'+v+'</div><div class="metric__h">'+h+'</div></div>';}
+
+function flags(a){
+  var out=[];
+  if(a.savingsRate<0) out.push(["bad","🔴","Тратишь больше, чем зарабатываешь","В среднем расходы превышают доход — это главный риск, разбираем в рекомендациях."]);
+  else if(a.savingsRate<0.1) out.push(["warn","🟡","Почти ничего не откладывается","Норма сбережений ниже 10% — при любой неожиданности выручать нечем."]);
+  else out.push(["good","🟢","Здоровая норма сбережений","Откладываешь "+pct(a.savingsRate)+" дохода — так и держи."]);
+  if(a.cushionMonths<1) out.push(["bad","🛟","Нет подушки безопасности","Резерва меньше чем на месяц. Цель — 3–6 месяцев расходов ("+rub(a.expMo*3)+"–"+rub(a.expMo*6)+")."]);
+  else if(a.cushionMonths<3) out.push(["warn","🛟","Подушка маловата","Хватит на "+a.cushionMonths.toFixed(1)+" мес, а надо 3–6. Продолжай откладывать."]);
+  if(a.discShare>0.35) out.push(["warn","🍹","Много необязательных трат",pct(a.discShare)+" уходит на кафе, такси, шопинг и т.п. — здесь самый простой резерв."]);
+  var topDisc=a.trimRecs[0];
+  if(topDisc) out.push(["warn","📌","Крупная статья: "+topDisc.cat.name.toLowerCase(),"~"+rub(topDisc.mo)+"/мес. Даже небольшое сокращение заметно освободит бюджет."]);
+  return out.map(function(f){return '<div class="flag flag--'+f[0]+'"><div class="flag__ic">'+f[1]+'</div><div><div class="flag__t">'+f[2]+'</div><div class="flag__d">'+f[3]+'</div></div></div>';}).join("");
+}
+
+function recs(a){
+  var list=[];
+  if(a.cushionMonths<3) list.push(["Собери подушку безопасности","Автоматически откладывай в начале месяца фиксированную сумму на отдельный счёт, пока не накопишь 3–6 месяцев расходов.","Цель: "+rub(a.expMo*3)+"–"+rub(a.expMo*6)]);
+  a.trimRecs.slice(0,2).forEach(function(r){
+    var tip={cafe:"Готовь дома 2–3 раза в неделю вместо кафе.",taxi:"Часть поездок — на общественном транспорте.",fun:"Пересмотри подписки, часть не используешь.",shopping:"Правило 24 часов перед незапланированной покупкой.",alcohol:"Сократи спонтанные покупки.",food:"Закупайся по списку, меньше мелких забегов."}[r.id]||"Сократи необязательные траты.";
+    list.push(["Сократи «"+r.cat.name.toLowerCase()+"»",tip,"−"+rub(r.save)+"/мес ≈ "+rub(r.save*12)+"/год"]);
+  });
+  if(a.savingsRate<0.1) list.push(["Доведи норму сбережений до 10–20%","Начни с 10% дохода «в первую очередь», остальное — на жизнь. Это дисциплинирует расходы сильнее любого учёта.",""]);
+  list.push(["Проверь регулярные списания","Подписки и мелкие автоплатежи незаметно съедают бюджет — раз в квартал пересматривай их.",""]);
+  if(a.potential>0) list.unshift(["Суммарный потенциал экономии","Если умеренно подрезать необязательные категории, освобождается заметная сумма — можно направить в подушку или на цель.","до "+rub(a.potential)+"/мес · "+rub(a.potential*12)+"/год"]);
+  return list.slice(0,5).map(function(r,i){return '<div class="rec"><div class="rec__n">'+(i+1)+'</div><div><div class="rec__t">'+r[0]+'</div><div class="rec__d">'+r[1]+'</div>'+(r[2]?'<div class="rec__save">'+r[2]+'</div>':"")+'</div></div>';}).join("");
+}
+
+/* ---------- gauge geometry ---------- */
+function polar(cx,cy,r,deg){var a=(deg)*Math.PI/180;return {x:cx+r*Math.cos(a),y:cy+r*Math.sin(a)};}
+function describeArc(cx,cy,r,a0,a1){var s=polar(cx,cy,r,a0),e=polar(cx,cy,r,a1);var large=a1-a0<=180?0:1;return "M "+s.x.toFixed(2)+" "+s.y.toFixed(2)+" A "+r+" "+r+" 0 "+large+" 1 "+e.x.toFixed(2)+" "+e.y.toFixed(2);}
+
+/* ---------- advisor chat ---------- */
+function initChat(a){
+  var log=$("#chatLog"),chips=$("#chatChips"),input=$("#chatInput"),send=$("#chatSend");
+  function add(text,who){var m=document.createElement("div");m.className="msg "+who;m.innerHTML=text;log.appendChild(m);log.scrollTop=log.scrollHeight;}
+  var Q=[
+    ["Какое у меня финансовое состояние?",function(){var v=a.score>=55?"неплохое":"уязвимое";return "Оценка финансового здоровья — <b>"+a.score+"/100</b> ("+v+"). Откладываешь <b>"+pct(a.savingsRate)+"</b> дохода, подушки хватит на <b>"+(a.cushionMonths<0.1?"меньше месяца":a.cushionMonths.toFixed(1)+" мес")+"</b>, необязательные траты — <b>"+pct(a.discShare)+"</b>. Главное, над чем поработать — "+(a.cushionMonths<3?"подушка безопасности":"дисциплина сбережений")+".";}],
+    ["На чём мне сэкономить?",function(){if(!a.trimRecs.length)return "Крупных необязательных статей не вижу — уже неплохо. Следи за мелкими подписками.";var t=a.trimRecs.slice(0,3).map(function(r){return "<b>"+r.cat.name+"</b> −"+rub(r.save)+"/мес";}).join(", ");return "Проще всего подрезать: "+t+". Суммарно это до <b>"+rub(a.potential)+"/мес</b> (≈ "+rub(a.potential*12)+"/год) без потери качества жизни.";}],
+    ["Сколько я могу откладывать?",function(){var real=Math.max(0,a.net),withCut=Math.max(0,a.net)+a.potential;return "Сейчас в среднем остаётся <b>"+(a.net>=0?rub(a.net):"0 ₽ (уходишь в минус)")+"/мес</b>. Если подрезать необязательные траты, реально откладывать до <b>"+rub(withCut)+"/мес</b>.";}],
+    ["Хватит ли мне подушки?",function(){if(a.cushionMonths>=3)return "Да — резерва хватит на <b>"+a.cushionMonths.toFixed(1)+" мес</b>, это в норме (3–6). Дальше можно думать про инвестиции.";return "Пока нет: резерва на <b>"+(a.cushionMonths<0.1?"меньше месяца":a.cushionMonths.toFixed(1)+" мес")+"</b>, а безопасный минимум — 3–6 месяцев расходов, то есть <b>"+rub(a.expMo*3)+"–"+rub(a.expMo*6)+"</b>. Это цель №1.";}],
+    ["Куда уходят мои деньги?",function(){var t=a.cats.slice(0,3).map(function(x){return "<b>"+x.cat.name+"</b> "+pct(x.sum/a.expense);}).join(", ");return "Крупнейшие статьи: "+t+". Всего за период — "+rub(a.expense)+" ("+rub(a.expMo)+"/мес).";}],
+    ["Когда я накоплю 300 000 ₽?",function(){var rate=Math.max(0,a.net)+a.potential;if(rate<=0)return "При текущем раскладе накопить не выйдет — сначала нужно выйти в плюс (см. рекомендации). ";var mo=Math.ceil(300000/rate);return "Откладывая ~"+rub(rate)+"/мес (с учётом экономии), 300 000 ₽ соберёшь примерно за <b>"+mo+" мес</b> (~"+(mo/12).toFixed(1)+" года).";}]
+  ];
+  function answer(text){
+    var d=text.toLowerCase();
+    if(/сэконом|сократ|урез|тратить меньше/.test(d))return Q[1][1]();
+    if(/отклад|копл|копить|сберег|сколько.*могу/.test(d))return Q[2][1]();
+    if(/подушк|резерв|запас|безопасн/.test(d))return Q[3][1]();
+    if(/куда.*деньг|на что трач|структур|категор/.test(d))return Q[4][1]();
+    if(/накопл|накопить|300|цел|через сколько/.test(d))return Q[5][1]();
+    if(/состоян|здоров|оценк|как.*дела|итог/.test(d))return Q[0][1]();
+    if(/инвест|вклад|акци|облигац/.test(d))return "Инвестиции — только <b>после</b> подушки на 3–6 месяцев. Сейчас "+(a.cushionMonths>=3?"её хватает, можно начинать с консервативных инструментов (вклад, короткие облигации).":"её нет — сперва резерв, потом инвестиции.");
+    if(/долг|кредит|заём|ипотек/.test(d))return "По выписке крупных долговых платежей не вижу. Если есть кредиты — гаси сначала самые дорогие по ставке, и держи платежи в пределах 30% дохода.";
+    return "Я отвечаю на основе твоего разбора. Спроси, например: на чём сэкономить, сколько можно откладывать, хватит ли подушки, когда накопишь на цель. (В продукте здесь будет полноценный AI-советник.)";
+  }
+  // seed
+  add("Привет! Я посмотрел твой разбор. Спроси что угодно про свои финансы — отвечу по цифрам. Вот с чего можно начать:","bot");
+  Q.forEach(function(q){var c=document.createElement("button");c.className="chip";c.textContent=q[0];c.onclick=function(){ask(q[0]);};chips.appendChild(c);});
+  function ask(text){add(esc(text),"me");setTimeout(function(){add(answer(text),"bot");},250);}
+  send.onclick=function(){var v=input.value.trim();if(!v)return;input.value="";ask(v);};
+  input.addEventListener("keydown",function(e){if(e.key==="Enter")send.onclick();});
+}
+
+/* ---------- entry wiring ---------- */
+function run(tx){ if(!tx||!tx.length){alert("Не удалось прочитать операции из файла.");return;} render(analyze(tx)); }
+$("#useDemo").onclick=function(){run(demoTx());};
+$("#pickFile").onclick=function(){$("#csvFile").click();};
+$("#csvFile").onchange=function(){var f=this.files&&this.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){var rows=parseCSV(rd.result);if(!rows){alert("Не похоже на CSV.");return;}run(rowsToTx(rows));};rd.readAsText(f,"utf-8");};
+var drop=$("#drop");
+["dragover","dragenter"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over");});});
+["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over");});});
+drop.addEventListener("drop",function(e){var f=e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){var rows=parseCSV(rd.result);if(rows)run(rowsToTx(rows));};rd.readAsText(f,"utf-8");});
+drop.addEventListener("click",function(){$("#csvFile").click();});
+})();
+</script>
+</body>
+</html>
