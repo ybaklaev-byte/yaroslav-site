@@ -9,10 +9,19 @@ import { series, latestDelta } from "./dynamics.js";
 import * as store from "./store.js";
 
 const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 const R = document.documentElement;
+
+/* current snapshot open in разбор, and screen shown before profile (for back-navigation) */
+let currentSnapshotId = null;
+let previousScreen = "entry";
 
 /* theme */
 const TK = "fin-proto-theme";
+function setTheme(t) {
+  R.setAttribute("data-theme", t);
+  try { localStorage.setItem(TK, t); } catch (e) {}
+}
 (function () {
   let s = null;
   try { s = localStorage.getItem(TK); } catch (e) {}
@@ -20,10 +29,21 @@ const TK = "fin-proto-theme";
   R.setAttribute("data-theme", s);
 })();
 $("#themeBtn").onclick = function () {
-  const c = R.getAttribute("data-theme") === "light" ? "light" : "dark", n = c === "light" ? "dark" : "light";
-  R.setAttribute("data-theme", n);
-  try { localStorage.setItem(TK, n); } catch (e) {}
+  const c = R.getAttribute("data-theme") === "light" ? "light" : "dark";
+  setTheme(c === "light" ? "dark" : "light");
 };
+
+/* ---------- screen switching ---------- */
+function showScreen(name) {
+  $("#entry").classList.toggle("hidden", name !== "entry");
+  $("#result").classList.toggle("hidden", name !== "result");
+  $("#dynamics").classList.toggle("hidden", name !== "dynamics");
+  $("#profile").classList.toggle("hidden", name !== "profile");
+  $("#resultNav").classList.toggle("hidden", name !== "result" && name !== "dynamics");
+  if (name === "result") { $("#navResult").classList.add("active"); $("#navDynamics").classList.remove("active"); }
+  if (name === "dynamics") { $("#navDynamics").classList.add("active"); $("#navResult").classList.remove("active"); }
+  window.scrollTo(0, 0);
+}
 
 /* ---------- formatting ---------- */
 function rub(n) { return Math.round(Math.abs(n)).toLocaleString("ru-RU") + " ₽"; }
@@ -50,11 +70,25 @@ function flagsHtml(a) {
 }
 
 function recsHtml(a) {
-  return a.recs.map((r, i) =>
-    '<div class="rec"><div class="rec__n">' + (i + 1) + '</div><div><div class="rec__t">' + r.title + '</div><div class="rec__d">' + r.detail + '</div>'
-    + (r.save > 0 ? '<div class="rec__save">−' + rub(r.save) + '/мес</div>' : "")
-    + '</div></div>'
-  ).join("");
+  const snap = currentSnapshotId ? store.getSnapshot(currentSnapshotId) : null;
+  const recDone = (snap && snap.recDone) || {};
+  return a.recs.map((r, i) => {
+    const done = !!recDone[r.id];
+    const cbAttrs = 'type="checkbox" class="rec__cb" data-recid="' + esc(r.id) + '"' + (done ? " checked" : "") + (currentSnapshotId ? "" : " disabled");
+    return '<div class="rec' + (done ? " rec--done" : "") + '"><input ' + cbAttrs + '><div class="rec__n">' + (i + 1) + '</div><div><div class="rec__t">' + r.title + '</div><div class="rec__d">' + r.detail + '</div>'
+      + (r.save > 0 ? '<div class="rec__save">−' + rub(r.save) + '/мес</div>' : "")
+      + '</div></div>';
+  }).join("");
+}
+
+function wireRecCheckboxes() {
+  $$("#result .rec__cb").forEach((cb) => {
+    cb.onchange = function () {
+      if (!currentSnapshotId) return;
+      store.setRecDone(currentSnapshotId, this.dataset.recid, this.checked);
+      this.closest(".rec").classList.toggle("rec--done", this.checked);
+    };
+  });
 }
 
 /* ---------- dynamics ---------- */
@@ -173,20 +207,78 @@ function render(a, history) {
   h += '<button class="cta-again" id="again">↺ Загрузить другую выписку</button>';
 
   $("#result").innerHTML = h;
-  $("#result").classList.remove("hidden");
-  $("#dynamics").classList.add("hidden");
-  $("#entry").classList.add("hidden");
-  $("#resultNav").classList.remove("hidden");
-  $("#navResult").classList.add("active");
-  $("#navDynamics").classList.remove("active");
-  window.scrollTo(0, 0);
+  showScreen("result");
+  wireRecCheckboxes();
   initChat(a, history);
   $("#again").onclick = function () {
-    $("#result").classList.add("hidden");
-    $("#dynamics").classList.add("hidden");
-    $("#resultNav").classList.add("hidden");
-    $("#entry").classList.remove("hidden");
-    window.scrollTo(0, 0);
+    showScreen("entry");
+  };
+}
+
+/* ---------- profile / settings ---------- */
+function openSnapshot(id) {
+  const snap = store.getSnapshot(id);
+  if (!snap) return;
+  currentSnapshotId = id;
+  render(snap.analysis, store.listSnapshots());
+}
+
+function exportSnapshots() {
+  const data = store.listSnapshots();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "balance-snapshots.json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderProfile() {
+  const profile = store.getProfile();
+  const theme = R.getAttribute("data-theme") === "light" ? "light" : "dark";
+  const snaps = store.listSnapshots().slice().reverse();
+
+  let h = "";
+  h += '<div class="eyebrow">Профиль</div>';
+  h += '<h1 class="h-title">Настройки</h1>';
+
+  h += '<div class="blk-h">Имя</div>';
+  h += '<div class="prof-field"><input type="text" id="profName" class="prof-input" placeholder="Как к тебе обращаться" value="' + esc(profile.name || "") + '"></div>';
+
+  h += '<div class="blk-h">Тема</div>';
+  h += '<div class="btn-line">'
+    + '<button class="btn' + (theme === "light" ? " btn--pri" : "") + '" id="themeLight">Светлая</button>'
+    + '<button class="btn' + (theme === "dark" ? " btn--pri" : "") + '" id="themeDark">Тёмная</button>'
+    + '</div>';
+
+  h += '<div class="blk-h">Мои разборы</div>';
+  if (!snaps.length) {
+    h += '<div class="note">Пока нет сохранённых разборов.</div>';
+  } else {
+    h += '<div class="snap-list">' + snaps.map((s) =>
+      '<div class="snap-row"><div><div class="snap-row__d">' + fmtDate(s.date) + '</div><div class="snap-row__s">Score ' + s.analysis.score + '</div></div>'
+      + '<div class="snap-row__btns"><button class="snap-btn" data-open="' + esc(s.id) + '">Открыть</button><button class="snap-btn snap-btn--danger" data-del="' + esc(s.id) + '">Удалить</button></div></div>'
+    ).join("") + '</div>';
+    h += '<button class="btn" id="profExport" style="margin-top:14px;width:100%">Экспорт (JSON)</button>';
+  }
+
+  h += '<button class="cta-again" id="profBack">← Назад</button>';
+
+  $("#profile").innerHTML = h;
+
+  $("#profName").oninput = function () { store.setProfile({ name: this.value }); };
+  $("#themeLight").onclick = function () { setTheme("light"); renderProfile(); };
+  $("#themeDark").onclick = function () { setTheme("dark"); renderProfile(); };
+  $$("#profile [data-open]").forEach((btn) => { btn.onclick = function () { openSnapshot(this.dataset.open); }; });
+  $$("#profile [data-del]").forEach((btn) => { btn.onclick = function () { store.deleteSnapshot(this.dataset.del); renderProfile(); }; });
+  const exportBtn = $("#profExport");
+  if (exportBtn) exportBtn.onclick = exportSnapshots;
+  $("#profBack").onclick = function () {
+    if (previousScreen === "dynamics") renderDynamics();
+    showScreen(previousScreen);
   };
 }
 
@@ -225,24 +317,23 @@ function initChat(a, history) {
 function run(tx, source) {
   if (!tx || !tx.length) { alert("Не удалось прочитать операции из файла."); return; }
   const analysis = analyze(tx);
-  if (store.available()) store.saveSnapshot(analysis, source);
+  currentSnapshotId = store.available() ? store.saveSnapshot(analysis, source).id : null;
   render(analysis, store.listSnapshots());
 }
 
 $("#navResult").onclick = function () {
-  $("#navResult").classList.add("active");
-  $("#navDynamics").classList.remove("active");
-  $("#result").classList.remove("hidden");
-  $("#dynamics").classList.add("hidden");
-  window.scrollTo(0, 0);
+  showScreen("result");
 };
 $("#navDynamics").onclick = function () {
-  $("#navDynamics").classList.add("active");
-  $("#navResult").classList.remove("active");
   renderDynamics();
-  $("#result").classList.add("hidden");
-  $("#dynamics").classList.remove("hidden");
-  window.scrollTo(0, 0);
+  showScreen("dynamics");
+};
+$("#settingsBtn").onclick = function () {
+  previousScreen = $("#dynamics").classList.contains("hidden")
+    ? ($("#result").classList.contains("hidden") ? "entry" : "result")
+    : "dynamics";
+  renderProfile();
+  showScreen("profile");
 };
 
 $("#useDemo").onclick = function () { run(demoTx(), "demo"); };
