@@ -6,7 +6,9 @@ let server;
 let base;
 
 before(async () => {
-  server = createServer(':memory:');
+  // Большой лимит: функциональные тесты делают много register/login с одного IP;
+  // сам rate-limit проверяется отдельно в deploy.test.js.
+  server = createServer(':memory:', { rateLimit: { max: 1000 } });
   await new Promise((resolve) => server.listen(0, resolve));
   const { port } = server.address();
   base = `http://127.0.0.1:${port}`;

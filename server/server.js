@@ -45,6 +45,20 @@ function readBody(req) {
 
 const PARSE_ERROR = Symbol('parse error');
 
+// Прекомпьют для выравнивания тайминга логина: если email не найден,
+// всё равно выполняем scrypt той же стоимости (анти-перечисление пользователей).
+const DUMMY = hashPassword('dummy-timing-equalizer');
+
+function normEmail(email) {
+  return String(email ?? '').trim().toLowerCase();
+}
+
+function validSnapshot(body) {
+  return !!(body && typeof body.id === 'string' && body.id.length > 0 &&
+    typeof body.date === 'number' && Number.isFinite(body.date) &&
+    body.analysis && typeof body.analysis === 'object');
+}
+
 async function readJson(req) {
   const text = await readBody(req);
   if (!text) return {};
@@ -74,8 +88,34 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-export function createServer(dbPath) {
+export function createServer(dbPath, opts = {}) {
   const db = openDb(dbPath);
+  const secure = opts.secure ?? process.env.BALANCE_SECURE === '1';
+  const rl = { max: 10, windowMs: 15 * 60 * 1000, ...(opts.rateLimit || {}) };
+  // Rate-limit попыток register/login: ip -> {count, resetAt}. В памяти —
+  // при рестарте сбрасывается, для одного VPS этого достаточно.
+  const attempts = new Map();
+
+  function clientIp(req) {
+    // За Caddy/nginx remoteAddress — это прокси; берём первый X-Forwarded-For.
+    if (secure && req.headers['x-forwarded-for']) {
+      return String(req.headers['x-forwarded-for']).split(',')[0].trim();
+    }
+    return req.socket.remoteAddress || 'unknown';
+  }
+
+  function rateLimited(req) {
+    const now = Date.now();
+    const ip = clientIp(req);
+    let rec = attempts.get(ip);
+    if (!rec || now >= rec.resetAt) {
+      rec = { count: 0, resetAt: now + rl.windowMs };
+      attempts.set(ip, rec);
+    }
+    rec.count += 1;
+    if (attempts.size > 10000) attempts.clear(); // страховка от разрастания
+    return rec.count > rl.max;
+  }
 
   function requireAuth(req) {
     const cookies = parseCookies(req);
@@ -87,18 +127,20 @@ export function createServer(dbPath) {
   }
 
   function setSidCookie(res, token) {
-    res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; SameSite=Lax; Path=/`);
+    res.setHeader('Set-Cookie', `sid=${token}; HttpOnly; SameSite=Lax; Path=/${secure ? '; Secure' : ''}`);
   }
 
   function clearSidCookie(res) {
-    res.setHeader('Set-Cookie', 'sid=; Max-Age=0; Path=/');
+    res.setHeader('Set-Cookie', `sid=; Max-Age=0; Path=/${secure ? '; Secure' : ''}`);
   }
 
   async function handleApi(req, res, method, pathname) {
     if (method === 'POST' && pathname === '/api/register') {
+      if (rateLimited(req)) return json(res, 429, { error: 'too many attempts' });
       const body = await readJson(req);
       if (body === PARSE_ERROR) return json(res, 400, { error: 'bad json' });
-      const { email, password } = body ?? {};
+      const email = normEmail((body ?? {}).email);
+      const password = (body ?? {}).password;
       if (!validEmail(email) || !validPassword(password)) return json(res, 400, { error: 'invalid' });
       const { hash, salt } = hashPassword(password);
       const user = db.createUser(email, hash, salt);
@@ -110,13 +152,17 @@ export function createServer(dbPath) {
     }
 
     if (method === 'POST' && pathname === '/api/login') {
+      if (rateLimited(req)) return json(res, 429, { error: 'too many attempts' });
       const body = await readJson(req);
       if (body === PARSE_ERROR) return json(res, 400, { error: 'bad json' });
-      const { email, password } = body ?? {};
+      const email = normEmail((body ?? {}).email);
+      const password = (body ?? {}).password;
       const row = db.findUserByEmail(email);
-      if (!row || !verifyPassword(password ?? '', row.pass_hash, row.salt)) {
-        return json(res, 401, { error: 'invalid credentials' });
-      }
+      // Тайминг выравнен: scrypt выполняется и при несуществующем email.
+      const ok = row
+        ? verifyPassword(password ?? '', row.pass_hash, row.salt)
+        : (verifyPassword(password ?? '', DUMMY.hash, DUMMY.salt), false);
+      if (!ok) return json(res, 401, { error: 'invalid credentials' });
       const token = newToken();
       db.createSession(token, row.id);
       setSidCookie(res, token);
@@ -146,7 +192,8 @@ export function createServer(dbPath) {
     if (method === 'POST' && pathname === '/api/snapshots') {
       const body = await readJson(req);
       if (body === PARSE_ERROR) return json(res, 400, { error: 'bad json' });
-      db.upsertSnapshot(userId, body ?? {});
+      if (!validSnapshot(body)) return json(res, 400, { error: 'invalid snapshot' });
+      db.upsertSnapshot(userId, body);
       return json(res, 201, { ok: true });
     }
 
@@ -209,4 +256,12 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const server = createServer(path.join(__dirname, 'data.db'));
   const port = process.env.PORT || 4600;
   server.listen(port, () => console.log(`listening on ${port}`));
+  // Корректное завершение (systemd шлёт SIGTERM): закрыть сервер и БД.
+  const shutdown = (sig) => {
+    console.log(`${sig} received, shutting down`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
