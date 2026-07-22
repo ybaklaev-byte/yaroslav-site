@@ -140,9 +140,35 @@ h1,h2,h3{line-height:1.15;margin:0;text-wrap:balance;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
 .hidden{display:none;}
+
+/* PDF export */
+.result-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.pdf-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:10px;padding:9px 14px;font-family:var(--fb);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.pdf-btn:hover{border-color:var(--amber);}
+#print-header{display:none;}
+
 @media(max-width:520px){.mgrid{grid-template-columns:1fr;}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
 :focus-visible{outline:2px solid var(--trail);outline-offset:2px;}
+
+/* Печать → «Сохранить как PDF»: чистый светлый макет только с разбором */
+@media print{
+  :root,:root[data-theme="dark"],:root[data-theme="light"]{
+    --bg:#fff;--fg:#1a1a1a;--line:#cfcfcf;--surface:#fff;--surface2:#f3f3f3;--muted:#555;--paper:#fff;--ink:#1a1a1a;
+  }
+  html,body{background:#fff !important;}
+  .top,#entry,#dynamics,.seg,.pdf-btn,.cta-again,#advisorBlock,.rec__cb,.toast{display:none !important;}
+  .wrap{max-width:100%;padding:0;}
+  .section{padding:0 !important;}
+  .result-head{margin-bottom:8px;}
+  #print-header{display:block !important;text-align:center;margin:0 0 16px;padding-bottom:10px;border-bottom:2px solid #1a1a1a;}
+  #print-header .ph-title{font-family:var(--fd);font-weight:600;font-size:22px;color:#1a1a1a;}
+  #print-header .ph-meta{font-family:var(--fm);font-size:11px;color:#555;margin-top:4px;}
+  .score-card,.metric,.flag,.chat{box-shadow:none !important;}
+  .blk-h{break-after:avoid;}
+  .score-card,.mgrid,.rec,.flag,.bar{break-inside:avoid;}
+  @page{margin:15mm 14mm;}
+}
 </style>
 </head>
 <body>

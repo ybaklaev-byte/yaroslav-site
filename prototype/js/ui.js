@@ -350,8 +350,11 @@ function render(a, history) {
   const bg = describeArc(cx, cy, r, 180, 360);
 
   let h = "";
+  const printDate = new Date().toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+  h += '<div id="print-header"><div class="ph-title">💰 Баланс · Финансовый разбор</div><div class="ph-meta">' + printDate + ' · разбор за ' + a.nMonths + ' мес</div></div>';
   h += '<div class="eyebrow">Твой разбор · ' + a.nMonths + ' мес · ' + rub(a.expense) + ' трат</div>';
-  h += '<h1 class="h-title">Финансовое здоровье</h1>';
+  h += '<div class="result-head"><h1 class="h-title" style="margin-bottom:0">Финансовое здоровье</h1>'
+    + '<button class="pdf-btn" id="pdfBtn" title="Сохранить разбор в PDF">⤓ Скачать PDF</button></div>';
   if (a.thinData) {
     h += '<div class="note" style="text-align:left;color:var(--rust);margin:-6px 0 16px">Разбор ориентировочный: мало данных.</div>';
   }
@@ -400,12 +403,12 @@ function render(a, history) {
   h += '<div class="blk-h">Рекомендации</div>';
   h += recsHtml(a);
 
-  // advisor
-  h += '<div class="blk-h">💬 Финансовый советник</div>';
+  // advisor (скрывается при печати в PDF)
+  h += '<div id="advisorBlock"><div class="blk-h">💬 Финансовый советник</div>';
   h += '<div class="chat"><div class="chat__log" id="chatLog"></div>'
     + '<div class="chips" id="chatChips"></div>'
     + '<div class="chat__in"><input id="chatInput" placeholder="Спроси про свои финансы…" autocomplete="off"><button class="chat__send" id="chatSend">➤</button></div>'
-    + '<div class="chat__note">Прототип: советник отвечает на основе твоего разбора, без внешних сервисов. В продукте здесь — полноценный AI на базе реальной модели.</div></div>';
+    + '<div class="chat__note">Прототип: советник отвечает на основе твоего разбора, без внешних сервисов. В продукте здесь — полноценный AI на базе реальной модели.</div></div></div>';
 
   h += '<button class="cta-again" id="again">↺ Загрузить другую выписку</button>';
 
@@ -415,6 +418,9 @@ function render(a, history) {
   initChat(a, history);
   $("#again").onclick = function () {
     showScreen("entry");
+  };
+  $("#pdfBtn").onclick = function () {
+    window.print();
   };
 }
 
